@@ -26,6 +26,13 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
     // ...
     'cors' => \App\Http\Middleware\Cors::class,
+    'auth' => \App\Http\Middleware\Authenticate::class,
+    // 'role' => \App\Http\Middleware\RoleMiddleware::class,
+    // ⭐ ADD THESE
+    // 'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+    'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+    'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+
 ];
     // ... rest of the file
 }
