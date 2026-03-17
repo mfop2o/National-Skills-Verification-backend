@@ -12,94 +12,79 @@ use App\Http\Controllers\InstitutionDashboardController;
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+|
+| This file contains the national skills verification platform API routes.
+| Routes are organized by authentication requirements and user roles.
+|
 */
 
-// CRITICAL TEST ROUTE - This MUST be first to verify routing works
-Route::get('/ping', function() {
+// Health Check
+Route::get('/health', function() {
     return response()->json([
-        'success' => true,
-        'message' => 'API routing is working!',
-        'laravel_version' => app()->version(),
-        'timestamp' => now()->toDateTimeString()
+        'status' => 'operational',
+        'timestamp' => now()->toDateTimeString(),
+        'version' => '1.0.0'
     ]);
 });
 
-// Test routes for CORS
-Route::get('/cors-test', function() {
-    return response()->json([
-        'message' => 'CORS is configured correctly',
-        'origin' => request()->header('Origin'),
-        'method' => request()->method()
-    ]);
-});
-
-Route::get('/test-cors', function() {
-    return response()->json([
-        'message' => 'CORS is working!',
-        'timestamp' => now()->toDateTimeString()
-    ]);
-});
-
-// PUBLIC ROUTES - No authentication required
+// PUBLIC ROUTES
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::get('/verify/credential', [EmployerController::class, 'verifyCredential']);
 
-// PROTECTED ROUTES - Require authentication
+// PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
-    // Auth
-    Route::post('/logout', [AuthController::class, 'logout']);
+    // Identity & Session
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Portfolio (All users)
+    // Professional Portfolio
     Route::prefix('portfolio')->group(function () {
         Route::get('/', [PortfolioController::class, 'index']);
         Route::put('/', [PortfolioController::class, 'update']);
-        Route::post('/upload-photo', [PortfolioController::class, 'uploadPhoto']);
+        Route::post('/photo', [PortfolioController::class, 'uploadPhoto']);
         
-        // Portfolio items
-        Route::post('/items', [PortfolioController::class, 'addItem']);
-        Route::put('/items/{id}', [PortfolioController::class, 'updateItem']);
-        Route::delete('/items/{id}', [PortfolioController::class, 'deleteItem']);
+        Route::prefix('items')->group(function () {
+            Route::post('/', [PortfolioController::class, 'addItem']);
+            Route::put('/{id}', [PortfolioController::class, 'updateItem']);
+            Route::delete('/{id}', [PortfolioController::class, 'deleteItem']);
+        });
     });
 
-    // Institution routes - FIXED: comma instead of pipe
+    // Institution Verification Services
     Route::middleware('role:institution,admin')->prefix('institution')->group(function () {
         Route::get('/dashboard', [InstitutionDashboardController::class, 'index']);
-        Route::get('/verifications', [VerificationController::class, 'queue']);
-        Route::get('/verifications/{verification}', [VerificationController::class, 'show']);
-        Route::post('/verifications/{verification}/start', [VerificationController::class, 'startReview']);
-        Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve']);
-        Route::post('/verifications/{verification}/reject', [VerificationController::class, 'reject']);
-        Route::post('/verifications/{verification}/revoke', [VerificationController::class, 'revoke']);
+        Route::prefix('verifications')->group(function () {
+            Route::get('/', [VerificationController::class, 'queue']);
+            Route::get('/{verification}', [VerificationController::class, 'show']);
+            Route::post('/{verification}/start', [VerificationController::class, 'startReview']);
+            Route::post('/{verification}/approve', [VerificationController::class, 'approve']);
+            Route::post('/{verification}/reject', [VerificationController::class, 'reject']);
+            Route::post('/{verification}/revoke', [VerificationController::class, 'revoke']);
+        });
     });
 
-    // Employer routes - FIXED: comma instead of pipe
+    // Employer Talent Services
     Route::middleware('role:employer,admin')->prefix('employer')->group(function () {
         Route::get('/dashboard', [EmployerController::class, 'dashboard']);
         Route::get('/candidates', [EmployerController::class, 'searchCandidates']);
         Route::get('/candidates/{id}', [EmployerController::class, 'viewCandidateProfile']);
+        Route::get('/verify-credential', [EmployerController::class, 'verifyCredential']);
     });
 
-    Route::get('/debug-middleware', function() {
-    $router = app('router');
-    $routeMiddleware = $router->getMiddleware();
-    
-    return response()->json([
-        'registered_middleware' => array_keys($routeMiddleware),
-        'role_middleware_class' => $routeMiddleware['role'] ?? 'not found',
-        'role_middleware_exists' => isset($routeMiddleware['role']),
-    ]);
-});
-
-    // Admin routes
+    // System Administration
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
-        Route::get('/institutions', [AdminController::class, 'institutions']);
-        Route::post('/institutions/{id}/approve', [AdminController::class, 'approveInstitution']);
-        Route::post('/institutions/{id}/reject', [AdminController::class, 'rejectInstitution']);
         Route::get('/audit-logs', [AdminController::class, 'auditLogs']);
-        Route::post('/users/{id}/suspend', [AdminController::class, 'suspendUser']);
-        Route::post('/users/{id}/reactivate', [AdminController::class, 'reactivateUser']);
+        
+        Route::prefix('institutions')->group(function () {
+            Route::get('/', [AdminController::class, 'institutions']);
+            Route::post('/{id}/approve', [AdminController::class, 'approveInstitution']);
+            Route::post('/{id}/reject', [AdminController::class, 'rejectInstitution']);
+        });
+
+        Route::prefix('users')->group(function () {
+            Route::post('/{id}/suspend', [AdminController::class, 'suspendUser']);
+            Route::post('/{id}/reactivate', [AdminController::class, 'reactivateUser']);
+        });
     });
 });
